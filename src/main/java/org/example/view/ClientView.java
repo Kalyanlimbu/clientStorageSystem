@@ -251,7 +251,7 @@ public class ClientView {
                     handleDeleteFiles(scanner, username);
                     break;
                 case "6":
-                    //handleShareFile(scanner, user);
+                    handleShareFile(scanner, username);
                     break;
                 case "7":
                     handleChangePassword(scanner, username, password);
@@ -292,6 +292,10 @@ public class ClientView {
                 }
                 if(situation.equals("delete")){
                     System.out.println("Since, you have no files uploaded, you can delete none.");
+                    return  true;
+                }
+                if(situation.equals("share")){
+                    System.out.println("Since, you have no files uploaded, you can share none.");
                     return  true;
                 }
             } else {
@@ -363,10 +367,13 @@ public class ClientView {
         fileService.deleteFile(scanner, username);
     }
 
-//    private void handleShareFile(Scanner scanner, User owner){
-//        fileService.shareFile(scanner, owner);
-//    }
-//
+    private void handleShareFile(Scanner scanner, String username) throws IOException, InterruptedException {
+        boolean breakPoint = handleDisplayFiles(username, "share");
+        if(breakPoint) return;
+        FileService fileService = new FileService();
+        fileService.shareFile(scanner, username);
+    }
+
 
     private void handleChangePassword(Scanner scanner, String username, String password) throws IOException, InterruptedException {
         System.out.println("*******************************************************");

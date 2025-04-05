@@ -25,6 +25,7 @@ public class FileService {
     private static final int ITERATION_COUNT = 65536;
     private static final int KEY_LENGTH = 256;
     private static final String BASE_FILE_URL = "http://localhost:8080/file/";
+    private static final String BASE_USER_URL = "http://localhost:8080/user/";
     private static final HttpClient client = HttpClient.newHttpClient();
 
     public void uploadFile(Scanner scanner, String username, String password) throws Exception {
@@ -220,12 +221,71 @@ public class FileService {
         System.out.println(response.body());
     }
 
+    public void shareFile(Scanner scanner, String username) throws IOException, InterruptedException {
+        System.out.println("*******************************************************");
+        System.out.println("You can only share the file which you have uploaded.");
+        System.out.print("Enter the filename you want to share (spaces are allowed): ");
+        String filename = scanner.nextLine().trim();
+        String checkFileNameUrl = BASE_FILE_URL + "checkFilename?filename=" +
+                URLEncoder.encode(filename, StandardCharsets.UTF_8) +
+                "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
+        HttpResponse<String> nameResponse = getRequest(checkFileNameUrl);
+        while (nameResponse.statusCode() == 200) {
+            System.out.println("*******************************************************");
+            System.out.println("The filename does not exist, please enter an existing file name to share.");
+            System.out.print("Please enter the file name (spaces are allowed): ");
+            filename = scanner.nextLine().trim();
+            checkFileNameUrl = BASE_FILE_URL + "checkFilename?filename=" +
+                    URLEncoder.encode(filename, StandardCharsets.UTF_8) +
+                    "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
+            nameResponse = getRequest(checkFileNameUrl);
+        }
+        System.out.println("Please enter the person username in the system to whom you want to share the file with.");
+        System.out.print("Please enter the username: ");
+        String desigantedUsername = scanner.nextLine().trim();
+        while(desigantedUsername .isEmpty()) {
+            System.out.println("Designated username cannot be empty. Try again.");
+            System.out.print("Please enter the username: ");
+            desigantedUsername = scanner.nextLine().trim();
+        }
+        String encodedUsername = URLEncoder.encode(desigantedUsername, StandardCharsets.UTF_8);
+        String checkUsername = BASE_USER_URL + encodedUsername + "/check";
+        HttpResponse<String> checkResponse = postRequest(checkUsername);
+        int i = 0;
+        while(checkResponse.statusCode() == 200){
+            if(i == 3){
+                System.out.println("Ran out of try again. Going back to main menu");
+                return;
+            }
+            System.out.println("Designated username does not exist. Try again.");
+            System.out.print("Please enter the correct username: ");
+            desigantedUsername = scanner.nextLine().trim();
+            checkUsername = BASE_USER_URL + URLEncoder.encode(desigantedUsername, StandardCharsets.UTF_8) + "/check";
+            checkResponse = postRequest(checkUsername);
+            i++;
+        }
+        String shareFilUrl = BASE_FILE_URL + "sharingFile?username="
+                + URLEncoder.encode(username, StandardCharsets.UTF_8)
+                + "&filename=" + URLEncoder.encode(filename, StandardCharsets.UTF_8)
+                + "&designatedUserName=" + URLEncoder.encode(desigantedUsername, StandardCharsets.UTF_8);
+        HttpResponse<String> response = postRequest(shareFilUrl);
+        System.out.println(response.body());
+    }
+
     // New postRequest method for byte[] payload
     private HttpResponse<String> postRequest(String url, byte[] data) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("Content-Type", "application/octet-stream")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(data))
+                .build();
+        return client.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private static HttpResponse<String> postRequest(String url) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .POST(HttpRequest.BodyPublishers.noBody())
                 .build();
         return client.send(request, HttpResponse.BodyHandlers.ofString());
     }
