@@ -202,7 +202,14 @@ public class FileService {
         int encryptedDataLen = bytesToInt(readBytes(input, 4));
         byte[] encryptedData = readBytes(input, encryptedDataLen);
         // 5. Decrypt the file
-        SecretKey secretKey = generateKeyFromPassword(password, salt);
+        SecretKey secretKey;
+        if(situation.equals("downloadSharedFile")){
+            String getHashedPasswordUrl = BASE_USER_URL + "getHashedPassword?username=" + URLEncoder.encode(ownerName, StandardCharsets.UTF_8);
+            HttpResponse<String> ownerPassword = getRequest(getHashedPasswordUrl);
+            secretKey = generateKeyFromPassword(ownerPassword.body(), salt);
+        }else{
+            secretKey = generateKeyFromPassword(password, salt);
+        }
         byte[] decryptedData = decrypt(encryptedData, secretKey, iv);
         // 6. Save to destination
         Files.write(destinationPath, decryptedData);

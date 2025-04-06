@@ -237,7 +237,7 @@ public class ClientView {
         String registerUserUrl = BASE_USER_URL + "register";
         HttpResponse<String> response = postRequestWithBody(registerUserUrl, json);
         if (response.statusCode() == 200) {
-            System.out.println("Registration successful!");
+            System.out.println("Registration successful! please login now.");
         } else {
             System.out.println("Registration failed: " + response.body());
         }
