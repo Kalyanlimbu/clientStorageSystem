@@ -149,10 +149,10 @@ public class ClientView {
 
         // Recompute the hash
         String saltBase64 = Base64.getEncoder().encodeToString(salt);
-        byte[] computedHash = HmacSHA256(hmacKey, (password + saltBase64).getBytes(StandardCharsets.UTF_8));
+        byte[] computedHash = HmacSHA256((password + saltBase64).getBytes(StandardCharsets.UTF_8), hmacKey);
 
         for (int i = 0; i < ITERATION_COUNT; i++) {
-            computedHash = HmacSHA256(hmacKey, computedHash);
+            computedHash = HmacSHA256(computedHash, hmacKey);
         }
         return slowEquals(originalHash, computedHash);
     }
@@ -290,12 +290,10 @@ public class ClientView {
             System.out.println("Password cannot be less than 8 characters.");
             passwordTry++;
         }
-        byte[] salt = generateRandomBytes(SALT_LENGTH);
-        String hashedPassword = hashPassword(password, salt);
         String getHashedPasswordUrl = BASE_USER_URL + "getHashedPassword?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
         HttpResponse<String> response = getRequest(getHashedPasswordUrl);
         System.out.println(response.body());
-        System.out.println(hashedPassword);
+
         System.out.println(response.statusCode());
         if (response.statusCode() == 200) {
             boolean checkPassword = verifyPassword(password, response.body());
@@ -303,7 +301,7 @@ public class ClientView {
             if(checkPassword){
                 System.out.println(username + ", you have logged in successfully.");
                 //here need to pass hashed password for authorization for encryption
-                handleAuthorization(username, hashedPassword);
+                //handleAuthorization(username, hashedPassword);
             }
 //            if(hashedPassword.equals(response.body())){
 //                System.out.println(username + ", you have logged in successfully.");
