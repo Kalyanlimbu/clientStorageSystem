@@ -18,7 +18,6 @@ import java.security.*;
 import java.security.spec.*;
 import java.util.*;
 
-
 public class FileService {
     private static final String ENCRYPTION_ALGORITHM = "AES/CBC/PKCS5Padding";
     private static final String SECRET_KEY_ALGORITHM = "PBKDF2WithHmacSHA256";
@@ -49,10 +48,9 @@ public class FileService {
                 System.out.println("Please enter a valid file path: ");
             }
         }
-
         System.out.print("Please enter the file name: ");
         String filename = scanner.nextLine().trim();
-        String checkFileNameUrl = BASE_FILE_URL + "checkFilename?filename=" +
+        String checkFileNameUrl = BASE_FILE_URL + "checkFilenameForUser?filename=" +
                 URLEncoder.encode(filename, StandardCharsets.UTF_8) +
                 "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
         HttpResponse<String> nameResponse = getRequest(checkFileNameUrl);
@@ -61,7 +59,7 @@ public class FileService {
             System.out.println("The filename already exists, please enter another file name.");
             System.out.print("Please enter the file name: ");
             filename = scanner.nextLine().trim();
-            checkFileNameUrl = BASE_FILE_URL + "checkFilename?filename=" +
+            checkFileNameUrl = BASE_FILE_URL + "checkFilenameForUser?filename=" +
                     URLEncoder.encode(filename, StandardCharsets.UTF_8) +
                     "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
             nameResponse = getRequest(checkFileNameUrl);
@@ -94,24 +92,55 @@ public class FileService {
         System.out.println(response.body());
     }
 
-    public void downloadFile(Scanner scanner, String username, String password) throws Exception {
+    public void downloadFile(Scanner scanner, String username, String password, String situation) throws Exception {
         // 1. Get filename to download
-        System.out.print("Enter the filename you want to download: ");
-        String filename = scanner.nextLine().trim();
-        String checkFileNameUrl = BASE_FILE_URL + "checkFilename?filename=" +
-                URLEncoder.encode(filename, StandardCharsets.UTF_8) +
-                "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
-        HttpResponse<String> nameResponse = getRequest(checkFileNameUrl);
-        // Loop until an existing file is found (assuming 200 means "does not exist")
-        while (nameResponse.statusCode() == 200) {
-            System.out.println("*******************************************************");
-            System.out.println("The filename does not exist, please enter an existing file name to download.");
-            System.out.print("Please enter the file name: ");
+        scanner.nextLine();
+        String ownerName = "";
+        if(situation.equals("downloadSharedFile")){
+            int i = 0;
+            while(true){
+                if(i == 3){
+                    System.out.println("Ran out of try again. Going back to main menu");
+                    return;
+                }
+                System.out.print("Enter the owner name of the file you want to download: ");
+                ownerName = scanner.nextLine().trim();
+                String checkUsername = BASE_USER_URL + URLEncoder.encode(ownerName, StandardCharsets.UTF_8) + "/check";
+                HttpResponse<String> checkResponse = postRequest(checkUsername);
+                if(checkResponse.statusCode() == 400) break;
+                System.out.println("Please enter the correct username.");
+                i++;
+            }
+        }
+        //scanner.nextLine();
+        String filename;
+        int noOfTry = 0;
+        while(true){
+            if(noOfTry == 3){
+                System.out.println("Ran out of try again. Going back to main menu");
+                return;
+            }
+            System.out.print("Enter the filename you want to download: ");
             filename = scanner.nextLine().trim();
-            checkFileNameUrl = BASE_FILE_URL + "checkFilename?filename=" +
-                    URLEncoder.encode(filename, StandardCharsets.UTF_8) +
-                    "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
-            nameResponse = getRequest(checkFileNameUrl);
+            if (filename.isEmpty()) {
+                System.out.println("Filename cannot be empty. Please enter a valid filename.");
+                noOfTry++;
+                continue;
+            }
+            String checkFileNameUrl;
+            if(situation.equals("downloadSharedFile")){
+                checkFileNameUrl = BASE_FILE_URL + "checkFilenameForUser?filename=" +
+                        URLEncoder.encode(filename, StandardCharsets.UTF_8) +
+                        "&username=" + URLEncoder.encode(ownerName, StandardCharsets.UTF_8);
+            }else {
+                checkFileNameUrl = BASE_FILE_URL + "checkFilenameForUser?filename=" +
+                        URLEncoder.encode(filename, StandardCharsets.UTF_8) +
+                        "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
+            }
+            HttpResponse<String> nameResponse = getRequest(checkFileNameUrl);
+            if(nameResponse.statusCode() == 400) break;
+            System.out.println("The filename does not exist, please enter an existing file name to download.");
+            noOfTry++;
         }
         // 2. Get destination directory (main directory, not full path)
         Path destinationDir;
@@ -136,16 +165,32 @@ public class FileService {
             }
         }
         // 3. Download file from server
-        String downloadUrl = BASE_FILE_URL + "download?filename=" +
-                URLEncoder.encode(filename, StandardCharsets.UTF_8) +
-                "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
-        HttpResponse<byte[]> response = client.send(
-                HttpRequest.newBuilder()
-                        .uri(URI.create(downloadUrl))
-                        .GET()
-                        .build(),
-                HttpResponse.BodyHandlers.ofByteArray()
-        );
+        String downloadUrl;
+        HttpResponse<byte[]> response;
+        if(situation.equals("downloadSharedFile")){
+            downloadUrl = BASE_FILE_URL + "download?filename=" +
+                    URLEncoder.encode(filename, StandardCharsets.UTF_8) +
+                    "&username=" + URLEncoder.encode(ownerName, StandardCharsets.UTF_8);
+                    response = client.send(
+                    HttpRequest.newBuilder()
+                            .uri(URI.create(downloadUrl))
+                            .GET()
+                            .build(),
+                    HttpResponse.BodyHandlers.ofByteArray()
+                    );
+
+        }else{
+            downloadUrl = BASE_FILE_URL + "download?filename=" +
+                    URLEncoder.encode(filename, StandardCharsets.UTF_8) +
+                    "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
+            response = client.send(
+                    HttpRequest.newBuilder()
+                            .uri(URI.create(downloadUrl))
+                            .GET()
+                            .build(),
+                    HttpResponse.BodyHandlers.ofByteArray()
+            );
+        }
         if (response.statusCode() != 200) {
             System.out.println("Error downloading file: " + response.statusCode() + " - " + new String(response.body(), StandardCharsets.UTF_8));
             return;
@@ -167,7 +212,7 @@ public class FileService {
     public void deleteFile(Scanner scanner, String username) throws IOException, InterruptedException {
         System.out.print("Enter the filename you want to delete: ");
         String filename = scanner.nextLine().trim();
-        String checkFileNameUrl = BASE_FILE_URL + "checkFilename?filename=" +
+        String checkFileNameUrl = BASE_FILE_URL + "checkFilenameForUser?filename=" +
                 URLEncoder.encode(filename, StandardCharsets.UTF_8) +
                 "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
         HttpResponse<String> nameResponse = getRequest(checkFileNameUrl);
@@ -176,7 +221,7 @@ public class FileService {
             System.out.println("The filename does not exists, please enter the right file name to delete.");
             System.out.print("Please enter the file name: ");
             filename = scanner.nextLine().trim();
-            checkFileNameUrl = BASE_FILE_URL + "checkFilename?filename=" +
+            checkFileNameUrl = BASE_FILE_URL + "checkFilenameForUser?filename=" +
                     URLEncoder.encode(filename, StandardCharsets.UTF_8) +
                     "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
             nameResponse = getRequest(checkFileNameUrl);
@@ -191,7 +236,7 @@ public class FileService {
     public void renameFile(Scanner scanner, String username) throws IOException, InterruptedException {
         System.out.print("Enter the filename you want to rename (spaces are allowed): ");
         String oldFilename = scanner.nextLine().trim();
-        String checkFileNameUrl = BASE_FILE_URL + "checkFilename?filename=" +
+        String checkFileNameUrl = BASE_FILE_URL + "checkFilenameForUser?filename=" +
                 URLEncoder.encode(oldFilename, StandardCharsets.UTF_8) +
                 "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
         HttpResponse<String> nameResponse = getRequest(checkFileNameUrl);
@@ -200,7 +245,7 @@ public class FileService {
             System.out.println("The filename does not exist, please enter an existing file name to rename.");
             System.out.print("Please enter the file name (spaces are allowed): ");
             oldFilename = scanner.nextLine().trim();
-            checkFileNameUrl = BASE_FILE_URL + "checkFilename?filename=" +
+            checkFileNameUrl = BASE_FILE_URL + "checkFilenameForUser?filename=" +
                     URLEncoder.encode(oldFilename, StandardCharsets.UTF_8) +
                     "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
             nameResponse = getRequest(checkFileNameUrl);
@@ -226,7 +271,7 @@ public class FileService {
         System.out.println("You can only share the file which you have uploaded.");
         System.out.print("Enter the filename you want to share (spaces are allowed): ");
         String filename = scanner.nextLine().trim();
-        String checkFileNameUrl = BASE_FILE_URL + "checkFilename?filename=" +
+        String checkFileNameUrl = BASE_FILE_URL + "checkFilenameForUser?filename=" +
                 URLEncoder.encode(filename, StandardCharsets.UTF_8) +
                 "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
         HttpResponse<String> nameResponse = getRequest(checkFileNameUrl);
@@ -235,7 +280,7 @@ public class FileService {
             System.out.println("The filename does not exist, please enter an existing file name to share.");
             System.out.print("Please enter the file name (spaces are allowed): ");
             filename = scanner.nextLine().trim();
-            checkFileNameUrl = BASE_FILE_URL + "checkFilename?filename=" +
+            checkFileNameUrl = BASE_FILE_URL + "checkFilenameForUser?filename=" +
                     URLEncoder.encode(filename, StandardCharsets.UTF_8) +
                     "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
             nameResponse = getRequest(checkFileNameUrl);

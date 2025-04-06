@@ -1,7 +1,6 @@
 package org.example;
 
 import org.example.view.ClientView;
-
 import java.io.IOException;
 import java.util.Scanner;
 

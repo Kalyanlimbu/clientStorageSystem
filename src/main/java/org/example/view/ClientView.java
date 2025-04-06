@@ -139,47 +139,101 @@ public class ClientView {
         return Base64.getEncoder().encodeToString(hmacKey) + ":" + saltBase64 + ":" + Base64.getEncoder().encodeToString(hash);
     }
 
+    private boolean verifyPassword(String password, String storedHash) {
+        String[] parts = storedHash.split(":");
+        if (parts.length != 3) return false;
+
+        byte[] hmacKey = Base64.getDecoder().decode(parts[0]);
+        byte[] salt = Base64.getDecoder().decode(parts[1]);
+        byte[] originalHash = Base64.getDecoder().decode(parts[2]);
+
+        // Recompute the hash
+        String saltBase64 = Base64.getEncoder().encodeToString(salt);
+        byte[] computedHash = HmacSHA256(hmacKey, (password + saltBase64).getBytes(StandardCharsets.UTF_8));
+
+        for (int i = 0; i < ITERATION_COUNT; i++) {
+            computedHash = HmacSHA256(hmacKey, computedHash);
+        }
+        return slowEquals(originalHash, computedHash);
+    }
+    // Time comparison to prevent timing attacks
+    private boolean slowEquals(byte[] a, byte[] b) {
+        int diff = a.length ^ b.length;
+        for (int i = 0; i < a.length && i < b.length; i++) {
+            diff |= a[i] ^ b[i];
+        }
+        return diff == 0;
+    }
+
     // Handle user registration with request body
     public static void handleRegister(Scanner scanner) throws IOException, InterruptedException {
         System.out.println("*******************************************************");
         System.out.println("Please enter the credentials for registering: ");
-        String username = "";
-        boolean usernameTaken = true;
-        while (usernameTaken) {
+        String username;
+        int noOfTrials = 0;
+        while(true){
+            if(noOfTrials == 3){
+                System.out.println("Ran out of try again. Going back to main menu");
+                return;
+            }
             System.out.print("Please enter the username: ");
             username = scanner.nextLine().trim();
             if (username.isEmpty()) {
                 System.out.println("Username cannot be empty. Try again.");
+                noOfTrials++;
                 continue;
             }
-            String encodedUsername = URLEncoder.encode(username, StandardCharsets.UTF_8);
-            String checkUsername = BASE_USER_URL + encodedUsername + "/check";
+            if(username.length() < 3){
+                System.out.println("Username cannot be less than 3 characters.");
+                noOfTrials++;
+                continue;
+            }
+            String checkUsername = BASE_USER_URL + URLEncoder.encode(username, StandardCharsets.UTF_8) + "/check";
             HttpResponse<String> checkResponse = postRequest(checkUsername);
-            if (checkResponse.statusCode() == 400) {
-                System.out.println(checkResponse.body());
-            } else if (checkResponse.statusCode() == 200) {
-                usernameTaken = false;
-            } else {
-                System.out.println("Error checking username: " + checkResponse.body());
+            if(checkResponse.statusCode() == 200) break;
+            System.out.println(checkResponse.body());
+            noOfTrials++;
+        }
+        String password;
+        int passwordTry = 0;
+        while(true){
+            if(passwordTry == 3){
+                System.out.println("Ran out of try again. Going back to main menu");
                 return;
             }
+            System.out.print("Please enter the password: ");
+            password = scanner.nextLine().trim();
+            if (password.isEmpty()) {
+                System.out.println("Password cannot be empty. Try again.");
+                passwordTry++;
+                continue;
+            }
+            if(password.length() > 8) break;
+            System.out.println("Password cannot be less than 8 characters.");
+            passwordTry++;
         }
-        System.out.print("Please enter the password: ");
-        String password = scanner.nextLine().trim();
-        if (password.isEmpty()) {
-            System.out.println("Password cannot be empty.");
-            return;
+        String email;
+        int emailTry = 0;
+        while(true){
+            if(emailTry == 3){
+                System.out.println("Ran out of try again. Going back to main menu");
+                return;
+            }
+            System.out.print("Please enter the email: ");
+            email = scanner.nextLine().trim();
+            if(email.isEmpty()){
+                System.out.println("Email cannot be empty. Try again.");
+                emailTry++;
+                continue;
+            }
+            if (email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) break;
+            System.out.println("Invalid, please use a valid format (e.g., user@example.com).");
+            emailTry++;
         }
-        System.out.print("Please enter the email: ");
-        String email = scanner.nextLine().trim();
-        if (email.isEmpty() || !email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
-            System.out.println("Invalid or empty email. Please use a valid format (e.g., user@example.com).");
-            return;
-        }
-        //byte[] salt = generateRandomBytes(SALT_LENGTH);
-        //String hashedPassword = hashPassword(password, salt);
+        byte[] salt = generateRandomBytes(SALT_LENGTH);
+        String hashedPassword = hashPassword(password, salt);
         String json = String.format("{\"username\":\"%s\",\"password\":\"%s\",\"email\":\"%s\"}",
-                username, password, email);
+                username, hashedPassword, email);
         String registerUserUrl = BASE_USER_URL + "register";
         HttpResponse<String> response = postRequestWithBody(registerUserUrl, json);
         if (response.statusCode() == 200) {
@@ -193,32 +247,71 @@ public class ClientView {
     private void handleLogin(Scanner scanner) throws Exception {
         System.out.println("*******************************************************");
         System.out.println("Please enter the credentials for logging in:");
-        System.out.print("Please enter your username: ");
-        String username = scanner.nextLine().trim();
-        while (username.isEmpty()) {
-            System.out.println("Username cannot be empty. Try again.");
+        String username;
+        int loginTry = 0;
+        while(true){
+            if(loginTry == 3){
+                System.out.println("Ran out of try again. Going back to main menu");
+                return;
+            }
             System.out.print("Please enter your username: ");
             username = scanner.nextLine().trim();
+            if(username.isEmpty()){
+                System.out.println("Username cannot be empty. Try again.");
+                loginTry++;
+                continue;
+            }
+            if(username.length() < 3){
+                System.out.println("Username cannot be less than 3 characters.");
+                loginTry++;
+                continue;
+            }
+            String checkUsername = BASE_USER_URL + URLEncoder.encode(username, StandardCharsets.UTF_8) + "/check";
+            HttpResponse<String> checkResponse = postRequest(checkUsername);
+            if(checkResponse.statusCode() == 400) break;
+            System.out.println("Invalid username, please enter the correct username.");
+            loginTry++;
         }
-        System.out.print("Please enter your password: ");
-        String password = scanner.nextLine().trim();
-        while (password.isEmpty()) {
-            System.out.println("Password cannot be empty. Try again.");
+        String password;
+        int passwordTry = 0;
+        while(true){
+            if(passwordTry == 3){
+                System.out.println("Ran out of try again. Going back to main menu");
+                return;
+            }
             System.out.print("Please enter your password: ");
             password = scanner.nextLine().trim();
+            if(password.isEmpty()){
+                System.out.println("Password cannot be empty. Try again.");
+                passwordTry++;
+                continue;
+            }
+            if(password.length() > 8) break;
+            System.out.println("Password cannot be less than 8 characters.");
+            passwordTry++;
         }
-        //byte[] salt = generateRandomBytes(SALT_LENGTH);
-        //String hashedPassword = hashPassword(password, salt);
-        String loginUrl = BASE_USER_URL + "login?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8)
-                + "&password=" + URLEncoder.encode(password, StandardCharsets.UTF_8);
-        HttpResponse<String> response = postRequest(loginUrl);
+        byte[] salt = generateRandomBytes(SALT_LENGTH);
+        String hashedPassword = hashPassword(password, salt);
+        String getHashedPasswordUrl = BASE_USER_URL + "getHashedPassword?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
+        HttpResponse<String> response = getRequest(getHashedPasswordUrl);
+        System.out.println(response.body());
+        System.out.println(hashedPassword);
+        System.out.println(response.statusCode());
         if (response.statusCode() == 200) {
-            System.out.println(response.body());
-            handleAuthorization(username, password);
-            // Optionally enter logged-in menu here
-            // loginMenu(username);
-        } else {
+            boolean checkPassword = verifyPassword(password, response.body());
+            System.out.println(checkPassword);
+            if(checkPassword){
+                System.out.println(username + ", you have logged in successfully.");
+                //here need to pass hashed password for authorization for encryption
+                handleAuthorization(username, hashedPassword);
+            }
+//            if(hashedPassword.equals(response.body())){
+//                System.out.println(username + ", you have logged in successfully.");
+//                handleAuthorization(username, hashedPassword);
+//            }
+        }else {
             System.out.println("Login failed: " + response.body());
+            return;
         }
     }
 
@@ -271,9 +364,34 @@ public class ClientView {
     }
 
     private void handleDownload(Scanner scanner, String username, String password) throws Exception{
-        handleDisplayFiles(username, "");
+        System.out.println("*******************************************************");
+        System.out.println("Would you like to download or read the files you have uploaded, or the files shared with you by other users?");
+        int option = 0, numberOfTry = 0;
+        while(true){
+            if(numberOfTry == 3){
+                System.out.println("Ran out of try again. Going back to main menu");
+                return;
+            }
+            System.out.print("Please choose 1 to download the files you have uploaded, or 2 to download the files shared with you: ");
+            option = scanner.nextInt();
+            if(option == 1 || option == 2) break;
+            System.out.println("Enter a valid number to make your selection: either 1 or 2.");
+            numberOfTry++;
+        }
         FileService fileService = new FileService();
-        fileService.downloadFile(scanner, username, password);
+        if(option == 1){
+            boolean breakPoint = handleDisplayFiles(username, "download");
+            if(breakPoint) return;
+            fileService.downloadFile(scanner, username, password, "downloadUploadedFile");
+        }else{
+            boolean breakPoint = handleDisplaySharedFiles(username);;
+            if(breakPoint) {
+                System.out.println("Since, no files has been shared with you, you can download none.");
+                //handleAuthorization(username, password);
+                return;
+            }
+            fileService.downloadFile(scanner, username, password, "downloadSharedFile");
+        }
     }
 
     private boolean handleDisplayFiles(String username, String situation) throws IOException, InterruptedException {
@@ -298,6 +416,10 @@ public class ClientView {
                     System.out.println("Since, you have no files uploaded, you can share none.");
                     return  true;
                 }
+                if(situation.equals("download")){
+                    System.out.println("Since, you have no files uploaded, you can download none.");
+                    return  true;
+                }
             } else {
                 System.out.println("Files uploaded by user: " + username);
                 int i = 1;
@@ -311,19 +433,17 @@ public class ClientView {
         return false;
     }
 
-    private void handleDisplaySharedFiles(String username) throws IOException, InterruptedException {
+    private boolean handleDisplaySharedFiles(String username) throws IOException, InterruptedException {
         String getSharedFilesUrl = BASE_FILE_URL + "displaySharedFiles?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
         System.out.println("*******************************************************");
-
         HttpResponse<String> response = getRequest(getSharedFilesUrl);
         String jsonResponse = response.body();
-
         // Parse JSON response
         List<String> parsedResponse = parseJsonResponse(jsonResponse);
-
         if (response.statusCode() == 200) {
             // Files exist, display them one by one
             System.out.println("Shared files for user: " + username);
+            System.out.println("Here shared file is viewed as file name: file owner name");
             int i = 1;
             for (String fileName : parsedResponse) {
                 System.out.println(i++ + ". " + fileName);
@@ -331,9 +451,11 @@ public class ClientView {
         } else if (response.statusCode() == 400) {
             // No files or error, display the message
             System.out.println(parsedResponse.get(0)); // Single message from bad request
+            return true;
         } else {
             System.out.println("Unexpected response: " + response.statusCode() + " - " + jsonResponse);
         }
+        return false;
     }
 
     // Manually parse JSON array of strings
