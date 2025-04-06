@@ -208,7 +208,7 @@ public class ClientView {
                 passwordTry++;
                 continue;
             }
-            if(password.length() > 8) break;
+            if(password.length() >= 8) break;
             System.out.println("Password cannot be less than 8 characters.");
             passwordTry++;
         }
@@ -286,29 +286,19 @@ public class ClientView {
                 passwordTry++;
                 continue;
             }
-            if(password.length() > 8) break;
+            if(password.length() >= 8) break;
             System.out.println("Password cannot be less than 8 characters.");
             passwordTry++;
         }
         String getHashedPasswordUrl = BASE_USER_URL + "getHashedPassword?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
         HttpResponse<String> response = getRequest(getHashedPasswordUrl);
-        System.out.println(response.body());
-
         System.out.println(response.statusCode());
-        if (response.statusCode() == 200) {
-            boolean checkPassword = verifyPassword(password, response.body());
-            System.out.println(checkPassword);
-            if(checkPassword){
-                System.out.println(username + ", you have logged in successfully.");
-                //here need to pass hashed password for authorization for encryption
-                //handleAuthorization(username, hashedPassword);
-            }
-//            if(hashedPassword.equals(response.body())){
-//                System.out.println(username + ", you have logged in successfully.");
-//                handleAuthorization(username, hashedPassword);
-//            }
+        if(verifyPassword(password, response.body().trim())){
+            System.out.println(username + ", you have logged in successfully.");
+            //here need to pass hashed password for authorization for encryption
+            handleAuthorization(username, response.body());
         }else {
-            System.out.println("Login failed: " + response.body());
+            System.out.println("Login failed: Invalid username or password.");
             return;
         }
     }
@@ -499,24 +489,28 @@ public class ClientView {
         System.out.println("*******************************************************");
         System.out.print("Enter your current password: ");
         String officialPassword = scanner.nextLine().trim();
-        while(!officialPassword.equals(password)){
-            System.out.println("You have entered the wrong password.");
-            System.out.print("Enter the correct current password: ");
-            officialPassword = scanner.nextLine().trim();
+        if(!verifyPassword(officialPassword, password)) {
+            System.out.println("Invalid password, going back to main menu.");
+            return;
         }
-        System.out.print("Enter new password: ");
-        String newPassword = scanner.nextLine();
-        System.out.print("Confirm new password: ");
-        String confirmPassword = scanner.nextLine();
-        while(!newPassword.equals(confirmPassword)) {
-            System.out.println("New password and confirm new password are not matching, Enter them again.");
+        String newPassword, confirmPassword;
+        int passwordTry = 0;
+        while(true){
+            if(passwordTry == 2){
+                System.out.println("Ran out of try again. Going back to main menu");
+                return;
+            }
             System.out.print("Enter new password: ");
             newPassword = scanner.nextLine();
             System.out.print("Confirm new password: ");
             confirmPassword = scanner.nextLine();
+            if(newPassword.equals(confirmPassword)) break;
+            System.out.println("New password and confirm new password are not matching, Enter them again.");
+            passwordTry++;
         }
-
-        String changePasswordUrl = BASE_USER_URL + "changePassword?username=" + username + "&newPassword=" + newPassword;
+        byte[] salt = generateRandomBytes(SALT_LENGTH);
+        String hashedPassword = hashPassword(newPassword, salt);
+        String changePasswordUrl = BASE_USER_URL + "changePassword?username=" + username + "&newPassword=" + hashedPassword;
         HttpResponse<String> response = putRequest(changePasswordUrl);
         System.out.println(response.body());
     }
