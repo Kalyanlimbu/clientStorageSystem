@@ -517,6 +517,7 @@ public class ClientView {
             System.out.print("Confirm new password: ");
             confirmPassword = scanner.nextLine();
         }
+
         String changePasswordUrl = BASE_USER_URL + "changePassword?username=" + username + "&newPassword=" + newPassword;
         HttpResponse<String> response = putRequest(changePasswordUrl);
         System.out.println(response.body());
