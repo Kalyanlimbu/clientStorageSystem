@@ -294,7 +294,9 @@ public class ClientView {
         HttpResponse<String> response = getRequest(getHashedPasswordUrl);
         System.out.println(response.statusCode());
         if(verifyPassword(password, response.body().trim())){
-            System.out.println(username + ", you have logged in successfully.");
+            String setLogInUrl = BASE_USER_URL + "login?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&password=" + URLEncoder.encode(response.body().trim(), StandardCharsets.UTF_8);
+            HttpResponse<String> login = postRequest(setLogInUrl);
+            System.out.println(login.body());
             //here need to pass hashed password for authorization for encryption
             handleAuthorization(username, response.body());
         }else {
@@ -346,7 +348,7 @@ public class ClientView {
         }
     }
 
-    private void handleUpload(Scanner scanner, String username, String password) throws Exception {
+    private void handleUpload(Scanner scanner, String username, String password) throws Exception  {
         FileService fileService = new FileService();
         fileService.uploadFile(scanner, username, password);
     }

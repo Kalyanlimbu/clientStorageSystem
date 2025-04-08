@@ -48,6 +48,7 @@ public class FileService {
                 System.out.println("Please enter a valid file path: ");
             }
         }
+        System.out.println("Remember to enter the name of the file with its original format; instead of just 'file1', write 'file1.pdf'.");
         System.out.print("Please enter the file name: ");
         String filename = scanner.nextLine().trim();
         String checkFileNameUrl = BASE_FILE_URL + "checkFilenameForUser?filename=" +
@@ -56,7 +57,7 @@ public class FileService {
         HttpResponse<String> nameResponse = getRequest(checkFileNameUrl);
         while (nameResponse.statusCode() == 400) {
             System.out.println("*******************************************************");
-            System.out.println("The filename already exists, please enter another file name.");
+            System.out.println("The filename already exists, please enter another file name with proper format.");
             System.out.print("Please enter the file name: ");
             filename = scanner.nextLine().trim();
             checkFileNameUrl = BASE_FILE_URL + "checkFilenameForUser?filename=" +
