@@ -13,8 +13,8 @@ import java.util.*;
 
 public class ClientView {
 
-    private static final String BASE_USER_URL = "http://localhost:8080/user/";
-    private static final String BASE_FILE_URL = "http://localhost:8080/file/";
+    private static final String BASE_USER_URL = "http://localhost:8080/api/user/";
+    private static final String BASE_FILE_URL = "http://localhost:8080/api/file/";
     private static final HttpClient client = HttpClient.newHttpClient();
     private static final String HMAC_ALGORITHM = "HmacSHA256";
     private static final int SALT_LENGTH = 32;
@@ -74,6 +74,16 @@ public class ClientView {
         System.out.println("8. Logout");
         System.out.print("Enter your choice: ");
     }
+
+    private void adminMenu(String username){
+        System.out.println("*******************************************************");
+        System.out.println("Logged In Menu: Hi! " + username);
+        System.out.println("1. View User logs");
+        System.out.println("2. Change Password");
+        System.out.println("3. Logout");
+        System.out.print("Enter your choice: ");
+    }
+
 
     // Generalized POST request method without body
     private static HttpResponse<String> postRequest(String url) throws IOException, InterruptedException {
@@ -293,7 +303,15 @@ public class ClientView {
         String getHashedPasswordUrl = BASE_USER_URL + "getHashedPassword?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
         HttpResponse<String> response = getRequest(getHashedPasswordUrl);
         System.out.println(response.statusCode());
-        if(verifyPassword(password, response.body().trim())){
+        //String hashedPasswordFromServer = response.body();
+        if(username.equals("admin")){
+            //if(verifyPassword(password, response.body())){
+                String setAdminLogInUrl = BASE_USER_URL + "login?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&password=" + URLEncoder.encode(response.body().trim(), StandardCharsets.UTF_8);
+                HttpResponse<String> login = postRequest(setAdminLogInUrl);
+                System.out.println(login.body());
+                handleAdminAuthorization(username, response.body());
+            //}
+        }else if(verifyPassword(password, response.body())){
             String setLogInUrl = BASE_USER_URL + "login?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&password=" + URLEncoder.encode(response.body().trim(), StandardCharsets.UTF_8);
             HttpResponse<String> login = postRequest(setLogInUrl);
             System.out.println(login.body());
@@ -309,6 +327,27 @@ public class ClientView {
         System.out.println("*******************************************************");
         System.out.println("Exiting system. Goodbye!");
         scanner.close();
+    }
+
+    private void handleAdminAuthorization(String username, String password) throws Exception {
+        Scanner scanner = new Scanner(System.in);
+        while (true) {
+            adminMenu(username);
+            String choice = scanner.nextLine();
+            switch (choice) {
+                case "1":
+                    handleAdminView(username, password);
+                    break;
+                case "2":
+                    handleChangePassword(scanner, username, password);
+                    break;
+                case "3":
+                    handleUserLogout(username);
+                    return;
+                default:
+                    System.out.println("Invalid choice, try again");
+            }
+        }
     }
 
     private void handleAuthorization(String username, String password) throws Exception {
@@ -345,6 +384,48 @@ public class ClientView {
                 default:
                     System.out.println("Invalid choice, try again");
             }
+        }
+    }
+
+//    private void handleAdminView(String username, String password) throws IOException, InterruptedException {
+//        System.out.println("*********************************************************************************************************************************************************************");
+//        System.out.println("Below is the list of user logs.");
+//        System.out.println("*********************************************************************************************************************************************************************");
+//        String adminView = BASE_USER_URL + "getLogsForAdmin?adminName=" + username + "&adminPassword=" + password;
+//        HttpResponse<String> response = getRequest(adminView);
+//        System.out.println(response.body());
+//    }
+
+    private void handleAdminView(String username, String password) throws IOException, InterruptedException {
+        System.out.println("*********************************************************************************************************************************************************************");
+        System.out.println("Below is the list of user logs.");
+        System.out.println("*********************************************************************************************************************************************************************");
+
+        // Construct the URL with correct parameter names
+        String adminView = BASE_USER_URL + "getLogsForAdmin?adminName=" + username + "&adminPassword=" + password;
+
+        // Send the HTTP GET request
+        HttpResponse<String> response = getRequest(adminView);
+
+        // Check if the response is successful (status code 200)
+        if (response.statusCode() == 200) {
+            // Parse the response using your custom method
+            List<String> logs = parseJsonResponse(response.body());
+
+            // Check if the list is empty
+            if (logs.isEmpty()) {
+                System.out.println("No logs available.");
+            } else {
+                // Print each log entry on a new line, removing spaces around colons
+                for (String log : logs) {
+                    String formattedLog = log.replace(": ", ":"); // Remove space after colons
+                    System.out.println(formattedLog);
+                }
+            }
+        } else {
+            // Handle error responses
+            System.out.println("Failed to retrieve logs. Status: " + response.statusCode());
+            System.out.println("Response: " + response.body());
         }
     }
 
@@ -448,22 +529,48 @@ public class ClientView {
         return false;
     }
 
-    // Manually parse JSON array of strings
     private List<String> parseJsonResponse(String json) {
         List<String> items = new ArrayList<>();
         if (json == null || json.equals("[]")) {
             return items; // Empty list for null or empty array
         }
-        // Remove [ and ] and split by comma
-        String trimmedJson = json.substring(1, json.length() - 1); // e.g., "file1.txt","file2.txt" or "message"
-        String[] elements = trimmedJson.split(",\\s*");
-        for (String element : elements) {
-            // Remove quotes around each item
-            String cleanElement = element.replace("\"", "").trim();
-            items.add(cleanElement);
+        // Remove [ and ]
+        String trimmedJson = json.substring(1, json.length() - 1);
+        if (trimmedJson.isEmpty()) {
+            return items;
+        }
+        // Split by "," (comma followed by a quote) to separate array elements
+        String[] elements = trimmedJson.split("\",\\s*\"");
+        for (int i = 0; i < elements.length; i++) {
+            // Remove leftover quotes from the first and last elements
+            String cleanElement = elements[i];
+            if (i == 0) {
+                cleanElement = cleanElement.replaceFirst("^\"", ""); // Remove leading quote from first element
+            }
+            if (i == elements.length - 1) {
+                cleanElement = cleanElement.replaceFirst("\"$", ""); // Remove trailing quote from last element
+            }
+            items.add(cleanElement.trim());
         }
         return items;
     }
+
+//    // Manually parse JSON array of strings
+//    private List<String> parseJsonResponse(String json) {
+//        List<String> items = new ArrayList<>();
+//        if (json == null || json.equals("[]")) {
+//            return items; // Empty list for null or empty array
+//        }
+//        // Remove [ and ] and split by comma
+//        String trimmedJson = json.substring(1, json.length() - 1); // e.g., "file1.txt","file2.txt" or "message"
+//        String[] elements = trimmedJson.split(",\\s*");
+//        for (String element : elements) {
+//            // Remove quotes around each item
+//            String cleanElement = element.replace("\"", "").trim();
+//            items.add(cleanElement);
+//        }
+//        return items;
+//    }
 
     private void handleRenameFiles(Scanner scanner, String username) throws IOException, InterruptedException {
         boolean breakPoint = handleDisplayFiles(username, "rename");
@@ -490,7 +597,7 @@ public class ClientView {
     private void handleChangePassword(Scanner scanner, String username, String password) throws IOException, InterruptedException {
         System.out.println("*******************************************************");
         System.out.print("Enter your current password: ");
-        String officialPassword = scanner.nextLine().trim();
+        String officialPassword = scanner.nextLine();
         if(!verifyPassword(officialPassword, password)) {
             System.out.println("Invalid password, going back to main menu.");
             return;

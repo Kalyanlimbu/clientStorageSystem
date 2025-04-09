@@ -23,8 +23,8 @@ public class FileService {
     private static final String SECRET_KEY_ALGORITHM = "PBKDF2WithHmacSHA256";
     private static final int ITERATION_COUNT = 65536;
     private static final int KEY_LENGTH = 256;
-    private static final String BASE_FILE_URL = "http://localhost:8080/file/";
-    private static final String BASE_USER_URL = "http://localhost:8080/user/";
+    private static final String BASE_FILE_URL = "http://localhost:8080/api/file/";
+    private static final String BASE_USER_URL = "http://localhost:8080/api/user/";
     private static final HttpClient client = HttpClient.newHttpClient();
 
     public void uploadFile(Scanner scanner, String username, String password) throws Exception {
@@ -238,7 +238,7 @@ public class FileService {
                 URLEncoder.encode(filename, StandardCharsets.UTF_8) +
                 "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
         HttpResponse<String> response = deleteRequest(deleteFileUrl);
-        System.out.println("Response: " + response.body());
+        System.out.println(response.body());
     }
 
     public void renameFile(Scanner scanner, String username) throws IOException, InterruptedException {
