@@ -27,7 +27,7 @@ public class FileService {
     private static final String BASE_USER_URL = "http://localhost:8080/api/user/";
     private static final HttpClient client = HttpClient.newHttpClient();
 
-    public void uploadFile(Scanner scanner, String username, String password) throws Exception {
+    public void uploadFile(Scanner scanner, String username, String password, String signature) throws Exception {
         String filePath;
         Path path = null;
         boolean validPath = false;
@@ -89,7 +89,10 @@ public class FileService {
         payload.write(intToBytes(encryptedData.length));
         payload.write(encryptedData);
         // Send the request
-        HttpResponse<String> response = postRequest(BASE_FILE_URL + "upload", payload.toByteArray());
+        String uploadUrl = BASE_FILE_URL + "upload?signature=" + URLEncoder.encode(signature, StandardCharsets.UTF_8);
+        // Send the request
+        HttpResponse<String> response = postRequest(uploadUrl, payload.toByteArray());
+        //HttpResponse<String> response = postRequest(BASE_FILE_URL + "upload", payload.toByteArray());
         System.out.println(response.body());
     }
 
@@ -217,7 +220,7 @@ public class FileService {
         System.out.println("File successfully downloaded to: " + destinationPath);
     }
 
-    public void deleteFile(Scanner scanner, String username) throws IOException, InterruptedException {
+    public void deleteFile(Scanner scanner, String username, String signature) throws IOException, InterruptedException {
         System.out.print("Enter the filename you want to delete: ");
         String filename = scanner.nextLine().trim();
         String checkFileNameUrl = BASE_FILE_URL + "checkFilenameForUser?filename=" +
@@ -235,8 +238,9 @@ public class FileService {
             nameResponse = getRequest(checkFileNameUrl);
         }
         String deleteFileUrl = BASE_FILE_URL + "delete?filename=" +
-                URLEncoder.encode(filename, StandardCharsets.UTF_8) +
-                "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
+                URLEncoder.encode(filename, StandardCharsets.UTF_8)
+                + "&username=" + URLEncoder.encode(username, StandardCharsets.UTF_8)
+                + "&signature=" + URLEncoder.encode(signature, StandardCharsets.UTF_8);
         HttpResponse<String> response = deleteRequest(deleteFileUrl);
         System.out.println(response.body());
     }
@@ -274,7 +278,7 @@ public class FileService {
         System.out.println(response.body());
     }
 
-    public void shareFile(Scanner scanner, String username) throws IOException, InterruptedException {
+    public void shareFile(Scanner scanner, String username, String signature) throws IOException, InterruptedException {
         System.out.println("*******************************************************");
         System.out.println("You can only share the file which you have uploaded.");
         System.out.print("Enter the filename you want to share (spaces are allowed): ");
@@ -320,7 +324,8 @@ public class FileService {
         String shareFilUrl = BASE_FILE_URL + "sharingFile?username="
                 + URLEncoder.encode(username, StandardCharsets.UTF_8)
                 + "&filename=" + URLEncoder.encode(filename, StandardCharsets.UTF_8)
-                + "&designatedUserName=" + URLEncoder.encode(desigantedUsername, StandardCharsets.UTF_8);
+                + "&designatedUserName=" + URLEncoder.encode(desigantedUsername, StandardCharsets.UTF_8)
+                +"&signature=" + URLEncoder.encode(signature, StandardCharsets.UTF_8);
         HttpResponse<String> response = postRequest(shareFilUrl);
         System.out.println(response.body());
     }

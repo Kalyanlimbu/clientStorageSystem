@@ -9,6 +9,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class ClientView {
@@ -20,6 +22,7 @@ public class ClientView {
     private static final int SALT_LENGTH = 32;
     private static final int KEY_LENGTH = 32;
     private static final int ITERATION_COUNT = 10000;
+
 
     public void start() throws Exception {
         Scanner scanner = new Scanner(System.in);
@@ -254,6 +257,110 @@ public class ClientView {
     }
 
     // Handle login with query parameters
+//    private void handleLogin(Scanner scanner) throws Exception {
+//        System.out.println("*******************************************************");
+//        System.out.println("Please enter the credentials for logging in:");
+//        String username;
+//        int loginTry = 0;
+//        while (true) {
+//            if (loginTry == 3) {
+//                System.out.println("Ran out of try again. Going back to main menu");
+//                return;
+//            }
+//            System.out.print("Please enter your username: ");
+//            username = scanner.nextLine().trim();
+//            if (username.isEmpty()) {
+//                System.out.println("Username cannot be empty. Try again.");
+//                loginTry++;
+//                continue;
+//            }
+//            if (username.length() < 3) {
+//                System.out.println("Username cannot be less than 3 characters.");
+//                loginTry++;
+//                continue;
+//            }
+//            String checkUsername = BASE_USER_URL + URLEncoder.encode(username, StandardCharsets.UTF_8) + "/check";
+//            HttpResponse<String> checkResponse = postRequest(checkUsername);
+//            if (checkResponse.statusCode() == 400) break; // Assuming 400 means username exists
+//            System.out.println("Invalid username, please enter the correct username.");
+//            loginTry++;
+//        }
+//
+//        String password;
+//        int passwordTry = 0;
+//        while (true) {
+//            if (passwordTry == 3) {
+//                System.out.println("Ran out of try again. Going back to main menu");
+//                return;
+//            }
+//            System.out.print("Please enter your password: ");
+//            password = scanner.nextLine().trim();
+//            if (password.isEmpty()) {
+//                System.out.println("Password cannot be empty. Try again.");
+//                passwordTry++;
+//                continue;
+//            }
+//            if (password.length() >= 8) break;
+//            System.out.println("Password cannot be less than 8 characters.");
+//            passwordTry++;
+//        }
+//
+//        // Fetch the stored hashed password from the server
+//        String getHashedPasswordUrl = BASE_USER_URL + "getHashedPassword?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
+//        HttpResponse<String> response = getRequest(getHashedPasswordUrl);
+//        String hashedPasswordFromServer = response.body();
+//
+//        if (response.statusCode() != 200) {
+//            System.out.println("Login failed: Unable to retrieve credentials from server.");
+//            return;
+//        }
+//
+//        // Verify the password
+//        if (verifyPassword(password, hashedPasswordFromServer)) {
+//            // Generate a timestamp
+//            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+//
+//            // Generate a signature using username, timestamp, and hashed password as the key
+//            String dataToSign = timestamp + "|" + username;
+//            byte[] hmacKey = Base64.getDecoder().decode(hashedPasswordFromServer.split(":")[0]); // Use the HMAC key from stored hash
+//            String signature = generateSignature(dataToSign, hmacKey);
+//
+//            // Send login request with signature to the server
+//            String setLogInUrl = BASE_USER_URL + "login?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) +
+//                    "&password=" + URLEncoder.encode(hashedPasswordFromServer.trim(), StandardCharsets.UTF_8) +
+//                    "&signature=" + URLEncoder.encode(signature, StandardCharsets.UTF_8);
+//            HttpResponse<String> login = postRequest(setLogInUrl);
+//            System.out.println(login.body());
+//
+//            if (login.statusCode() == 200) {
+//                if (username.equals("admin")) {
+//                    handleAdminAuthorization(username, hashedPasswordFromServer);
+//                } else {
+//                    handleAuthorization(username, hashedPasswordFromServer, signature);
+//                }
+//            } else {
+//                System.out.println("Login failed: " + login.body());
+//            }
+//        } else {
+//            System.out.println("Login failed: Invalid username or password.");
+//        }
+//    }
+
+    // Helper method to generate signature
+    private String generateSignature(String data, byte[] key) {
+        byte[] signatureBytes = HmacSHA256(data.getBytes(StandardCharsets.UTF_8), key);
+        return bytesToHex(signatureBytes);
+    }
+
+    // Convert byte array to hex string
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder hex = new StringBuilder();
+        for (byte b : bytes) {
+            hex.append(String.format("%02x", b));
+        }
+        return hex.toString();
+    }
+
     private void handleLogin(Scanner scanner) throws Exception {
         System.out.println("*******************************************************");
         System.out.println("Please enter the credentials for logging in:");
@@ -303,20 +410,33 @@ public class ClientView {
         String getHashedPasswordUrl = BASE_USER_URL + "getHashedPassword?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
         HttpResponse<String> response = getRequest(getHashedPasswordUrl);
         System.out.println(response.statusCode());
-        //String hashedPasswordFromServer = response.body();
+        String hashedPasswordFromServer = response.body();
+        // Generate a timestamp
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        // Generate a signature using username, timestamp, and hashed password as the key
+        String dataToSign = timestamp + "|" + username;
+        byte[] hmacKey = Base64.getDecoder().decode(hashedPasswordFromServer.split(":")[0]); // Use the HMAC key from stored hash
+        String signature = generateSignature(dataToSign, hmacKey);
+        // Send login request with signature to the server
+        // This is not fully right, need to implement verify also
         if(username.equals("admin")){
             //if(verifyPassword(password, response.body())){
-                String setAdminLogInUrl = BASE_USER_URL + "login?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&password=" + URLEncoder.encode(response.body().trim(), StandardCharsets.UTF_8);
-                HttpResponse<String> login = postRequest(setAdminLogInUrl);
-                System.out.println(login.body());
-                handleAdminAuthorization(username, response.body());
+                String setAdminLogInUrl = BASE_USER_URL + "login?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&password=" + URLEncoder.encode(response.body().trim(), StandardCharsets.UTF_8) + "&signature=" + URLEncoder.encode(signature, StandardCharsets.UTF_8);
+                HttpResponse<String> adminLogin = postRequest(setAdminLogInUrl);
+                System.out.println(adminLogin.body());
+                handleAdminAuthorization(username, response.body(), signature);
             //}
         }else if(verifyPassword(password, response.body())){
-            String setLogInUrl = BASE_USER_URL + "login?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&password=" + URLEncoder.encode(response.body().trim(), StandardCharsets.UTF_8);
+            // Send login request with signature to the server
+            String setLogInUrl = BASE_USER_URL + "login?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) +
+                    "&password=" + URLEncoder.encode(hashedPasswordFromServer.trim(), StandardCharsets.UTF_8) +
+                    "&signature=" + URLEncoder.encode(signature, StandardCharsets.UTF_8);
             HttpResponse<String> login = postRequest(setLogInUrl);
+            //String setLogInUrl = BASE_USER_URL + "login?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&password=" + URLEncoder.encode(response.body().trim(), StandardCharsets.UTF_8);
+            //HttpResponse<String> login = postRequest(setLogInUrl);
             System.out.println(login.body());
             //here need to pass hashed password for authorization for encryption
-            handleAuthorization(username, response.body());
+            handleAuthorization(username, response.body(), signature);
         }else {
             System.out.println("Login failed: Invalid username or password.");
             return;
@@ -329,7 +449,7 @@ public class ClientView {
         scanner.close();
     }
 
-    private void handleAdminAuthorization(String username, String password) throws Exception {
+    private void handleAdminAuthorization(String username, String password, String signature) throws Exception {
         Scanner scanner = new Scanner(System.in);
         while (true) {
             adminMenu(username);
@@ -342,7 +462,7 @@ public class ClientView {
                     handleChangePassword(scanner, username, password);
                     break;
                 case "3":
-                    handleUserLogout(username);
+                    handleUserLogout(username, signature);
                     return;
                 default:
                     System.out.println("Invalid choice, try again");
@@ -350,14 +470,14 @@ public class ClientView {
         }
     }
 
-    private void handleAuthorization(String username, String password) throws Exception {
+    private void handleAuthorization(String username, String password, String signature) throws Exception {
         Scanner scanner = new Scanner(System.in);
         while (true) {
             loginMenu(username);
             String choice = scanner.nextLine();
             switch (choice) {
                 case "1":
-                    handleUpload(scanner, username, password);
+                    handleUpload(scanner, username, password, signature);
                     break;
                 case "2":
                     handleDownload(scanner, username, password);
@@ -370,16 +490,16 @@ public class ClientView {
                     handleRenameFiles(scanner, username);
                     break;
                 case "5":
-                    handleDeleteFiles(scanner, username);
+                    handleDeleteFiles(scanner, username, signature);
                     break;
                 case "6":
-                    handleShareFile(scanner, username);
+                    handleShareFile(scanner, username, signature);
                     break;
                 case "7":
                     handleChangePassword(scanner, username, password);
                     break;
                 case "8":
-                    handleUserLogout(username);
+                    handleUserLogout(username, signature);
                     return;
                 default:
                     System.out.println("Invalid choice, try again");
@@ -429,9 +549,9 @@ public class ClientView {
         }
     }
 
-    private void handleUpload(Scanner scanner, String username, String password) throws Exception  {
+    private void handleUpload(Scanner scanner, String username, String password, String signature) throws Exception  {
         FileService fileService = new FileService();
-        fileService.uploadFile(scanner, username, password);
+        fileService.uploadFile(scanner, username, password, signature);
     }
 
     private void handleDownload(Scanner scanner, String username, String password) throws Exception{
@@ -579,18 +699,18 @@ public class ClientView {
         fileService.renameFile(scanner, username);
     }
 
-    private void handleDeleteFiles(Scanner scanner, String username) throws IOException, InterruptedException {
+    private void handleDeleteFiles(Scanner scanner, String username, String signature) throws IOException, InterruptedException {
         boolean breakPoint = handleDisplayFiles(username, "delete");
         if(breakPoint) return;
         FileService fileService = new FileService();
-        fileService.deleteFile(scanner, username);
+        fileService.deleteFile(scanner, username, signature);
     }
 
-    private void handleShareFile(Scanner scanner, String username) throws IOException, InterruptedException {
+    private void handleShareFile(Scanner scanner, String username, String signature) throws IOException, InterruptedException {
         boolean breakPoint = handleDisplayFiles(username, "share");
         if(breakPoint) return;
         FileService fileService = new FileService();
-        fileService.shareFile(scanner, username);
+        fileService.shareFile(scanner, username, signature);
     }
 
 
@@ -624,8 +744,10 @@ public class ClientView {
         System.out.println(response.body());
     }
 
-    private void handleUserLogout(String username) throws IOException, InterruptedException {
-        String logoutUrl = BASE_USER_URL + "logout?username=" + username;
+    private void handleUserLogout(String username, String signature) throws IOException, InterruptedException {
+        String logoutUrl = BASE_USER_URL + "logout?username="
+                +  URLEncoder.encode(username, StandardCharsets.UTF_8)
+                + "&signature=" + URLEncoder.encode(signature, StandardCharsets.UTF_8);
         HttpResponse<String> response = postRequest(logoutUrl);
         System.out.println(response.body());
         System.out.println("*******************************************************");
