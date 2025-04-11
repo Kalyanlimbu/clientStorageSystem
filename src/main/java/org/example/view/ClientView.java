@@ -149,17 +149,20 @@ public class ClientView {
         for (int i = 0; i < ITERATION_COUNT; i++) {
             hash = HmacSHA256(hash, hmacKey);
         }
+
         return Base64.getEncoder().encodeToString(hmacKey) + ":" + saltBase64 + ":" + Base64.getEncoder().encodeToString(hash);
     }
 
     private boolean verifyPassword(String password, String storedHash) {
         String[] parts = storedHash.split(":");
         if (parts.length != 3) return false;
+        String hmacKeyEncoded = parts[0].trim();
+        String saltEncoded = parts[1].trim();
+        String hashEncoded = parts[2].trim();
 
-        byte[] hmacKey = Base64.getDecoder().decode(parts[0]);
-        byte[] salt = Base64.getDecoder().decode(parts[1]);
-        byte[] originalHash = Base64.getDecoder().decode(parts[2]);
-
+        byte[] hmacKey = Base64.getDecoder().decode(hmacKeyEncoded);
+        byte[] salt = Base64.getDecoder().decode(saltEncoded);
+        byte[] originalHash = Base64.getDecoder().decode(hashEncoded);
         // Recompute the hash
         String saltBase64 = Base64.getEncoder().encodeToString(salt);
         byte[] computedHash = HmacSHA256((password + saltBase64).getBytes(StandardCharsets.UTF_8), hmacKey);
@@ -739,7 +742,7 @@ public class ClientView {
         }
         byte[] salt = generateRandomBytes(SALT_LENGTH);
         String hashedPassword = hashPassword(newPassword, salt);
-        String changePasswordUrl = BASE_USER_URL + "changePassword?username=" + username + "&newPassword=" + hashedPassword;
+        String changePasswordUrl = BASE_USER_URL + "changePassword?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&newPassword=" + URLEncoder.encode(hashedPassword, StandardCharsets.UTF_8);;
         HttpResponse<String> response = putRequest(changePasswordUrl);
         System.out.println(response.body());
     }
