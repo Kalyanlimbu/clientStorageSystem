@@ -145,7 +145,7 @@ public class ClientView {
     private static String hashPassword(String password, byte[] salt) {
         byte[] hmacKey = generateRandomBytes(KEY_LENGTH);
         String saltBase64 = Base64.getEncoder().encodeToString(salt);
-        byte[] hash = HmacSHA256((password + saltBase64).getBytes(StandardCharsets.UTF_8), hmacKey);
+        byte[] hash = HmacSHA256((password + saltBase64).getBytes(), hmacKey);
         for (int i = 0; i < ITERATION_COUNT; i++) {
             hash = HmacSHA256(hash, hmacKey);
         }
@@ -165,7 +165,7 @@ public class ClientView {
         byte[] originalHash = Base64.getDecoder().decode(hashEncoded);
         // Recompute the hash
         String saltBase64 = Base64.getEncoder().encodeToString(salt);
-        byte[] computedHash = HmacSHA256((password + saltBase64).getBytes(StandardCharsets.UTF_8), hmacKey);
+        byte[] computedHash = HmacSHA256((password + saltBase64).getBytes(), hmacKey);
 
         for (int i = 0; i < ITERATION_COUNT; i++) {
             computedHash = HmacSHA256(computedHash, hmacKey);
@@ -412,7 +412,7 @@ public class ClientView {
         }
         String getHashedPasswordUrl = BASE_USER_URL + "getHashedPassword?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
         HttpResponse<String> response = getRequest(getHashedPasswordUrl);
-        System.out.println(response.statusCode());
+        //System.out.println(response.statusCode());
         String hashedPasswordFromServer = response.body();
         // Generate a timestamp
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
@@ -422,7 +422,7 @@ public class ClientView {
         String signature = generateSignature(dataToSign, hmacKey);
         // Send login request with signature to the server
         // This is not fully right, need to implement verify also
-        if(username.equals("admin")){
+        if(username.equals("admin") && verifyPassword(password, response.body())){
             //if(verifyPassword(password, response.body())){
                 String setAdminLogInUrl = BASE_USER_URL + "login?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&password=" + URLEncoder.encode(response.body().trim(), StandardCharsets.UTF_8) + "&signature=" + URLEncoder.encode(signature, StandardCharsets.UTF_8);
                 HttpResponse<String> adminLogin = postRequest(setAdminLogInUrl);
