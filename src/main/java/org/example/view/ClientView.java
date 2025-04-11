@@ -21,8 +21,8 @@ public class ClientView {
     private static final String BASE_FILE_URL = "http://localhost:8080/api/file/";
     private static final HttpClient client = HttpClient.newHttpClient();
     private static final String HMAC_ALGORITHM = "HmacSHA256";
-    private static final int SALT_LENGTH = 32;
-    private static final int KEY_LENGTH = 32;
+    private static final int SALT_LENGTH = 64;
+    private static final int KEY_LENGTH = 64;
     private static final int ITERATION_COUNT = 10000;
 
 
@@ -381,9 +381,13 @@ public class ClientView {
             if (console != null) {
                 username = new String(console.readLine());
             } else {
-                System.out.print("Username cannot be empty. Please enter a username: ");
+                username = scanner.nextLine().trim();
+            }
+
+            if(username.isEmpty()){
+                System.out.println("Username cannot be empty. Try again.");
                 loginTry++;
-                continue;
+                continue;  // Changed from break to continue
             }
             if(username.length() < 3){
                 System.out.println("Username cannot be less than 3 characters.");
@@ -407,6 +411,9 @@ public class ClientView {
             if(console != null) {
                 char[] passwordArray = console.readPassword();
                 password = new String(passwordArray);
+                if(password.length() <= 8) break;
+                System.out.println("Password cannot be less than 8 characters.");
+                passwordTry++;
             }
             else{
             password = scanner.nextLine().trim();}
