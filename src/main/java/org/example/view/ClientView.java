@@ -1,6 +1,8 @@
 package org.example.view;
 
 import org.example.service.FileService;
+
+import java.io.Console;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -368,6 +370,7 @@ public class ClientView {
         System.out.println("*******************************************************");
         System.out.println("Please enter the credentials for logging in:");
         String username;
+        Console console = System.console();
         int loginTry = 0;
         while(true){
             if(loginTry == 3){
@@ -375,9 +378,10 @@ public class ClientView {
                 return;
             }
             System.out.print("Please enter your username: ");
-            username = scanner.nextLine().trim();
-            if(username.isEmpty()){
-                System.out.println("Username cannot be empty. Try again.");
+            if (console != null) {
+                username = new String(console.readLine());
+            } else {
+                System.out.print("Username cannot be empty. Please enter a username: ");
                 loginTry++;
                 continue;
             }
@@ -400,7 +404,12 @@ public class ClientView {
                 return;
             }
             System.out.print("Please enter your password: ");
-            password = scanner.nextLine().trim();
+            if(console != null) {
+                char[] passwordArray = console.readPassword();
+                password = new String(passwordArray);
+            }
+            else{
+            password = scanner.nextLine().trim();}
             if(password.isEmpty()){
                 System.out.println("Password cannot be empty. Try again.");
                 passwordTry++;
@@ -720,7 +729,15 @@ public class ClientView {
     private void handleChangePassword(Scanner scanner, String username, String password) throws IOException, InterruptedException {
         System.out.println("*******************************************************");
         System.out.print("Enter your current password: ");
-        String officialPassword = scanner.nextLine();
+        Console console = System.console();
+        String officialPassword;
+        if (console != null) {
+            char[] currentPasswordArray = console.readPassword();
+            officialPassword = new String(currentPasswordArray);
+        } else {
+            System.out.println("Console not available. Please enter your password:");
+            officialPassword = scanner.nextLine();
+        }
         if(!verifyPassword(officialPassword, password)) {
             System.out.println("Invalid password, going back to main menu.");
             return;
@@ -731,12 +748,25 @@ public class ClientView {
             if(passwordTry == 2){
                 System.out.println("Ran out of try again. Going back to main menu");
                 return;
+            }if(console != null) {
+                System.out.print("Enter new password: ");
+                char[] newPasswordArray = console.readPassword();
+                newPassword = new String(newPasswordArray);
+                System.out.print("Confirm new password: ");
+
+                char[] confirmPasswordArray = console.readPassword();
+                confirmPassword = new String(confirmPasswordArray);
+                if(newPassword.equals(confirmPassword)) break;
+                passwordTry++;
+            } else {
+                System.out.print("Enter new password: ");
+                newPassword = scanner.nextLine();
+                System.out.print("Confirm new password: ");
+                confirmPassword = scanner.nextLine();
+                if(newPassword.equals(confirmPassword)) break;
+                System.out.println("New password and confirm new password are not matching, Enter them again.");
+                passwordTry++;
             }
-            System.out.print("Enter new password: ");
-            newPassword = scanner.nextLine();
-            System.out.print("Confirm new password: ");
-            confirmPassword = scanner.nextLine();
-            if(newPassword.equals(confirmPassword)) break;
             System.out.println("New password and confirm new password are not matching, Enter them again.");
             passwordTry++;
         }
