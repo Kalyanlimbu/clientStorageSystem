@@ -41,7 +41,7 @@ public class ClientView {
                     handleLogin(scanner);
                     break;
                 case "3": // Forget Password
-                    // handleForgetPassword(scanner);
+                    handleForgetPassword (scanner);
                     break;
                 case "4": // Exit
                     handleExit(scanner);
@@ -460,6 +460,100 @@ public class ClientView {
             System.out.println("Login failed: Invalid username or password.");
             return;
         }
+    }
+    public static void handleForgetPassword(Scanner scanner) throws IOException, InterruptedException {
+        System.out.println("*******************************************************\n");
+        System.out.println("Please enter credentials of account to be recovered: ");
+        String username;
+        System.out.print("Enter username of account: ");
+        username = scanner.nextLine().trim();
+        int noOfTrials = 0;
+//        // obtain username from the user (and check if the username exists)
+//        while(true){
+//            if(noOfTrials == 3){
+//                System.out.println("Ran out of try again. Going back to main menu");
+//                return;
+//            }
+//            System.out.print("Please enter the username: ");
+//            username = scanner.nextLine().trim();
+//            if (username.isEmpty()) {
+//                System.out.println("Username cannot be empty. Try again.");
+//                noOfTrials++;
+//                continue;
+//            }
+//            if(username.length() < 3){
+//                System.out.println("Username cannot be less than 3 characters.");
+//                noOfTrials++;
+//                continue;
+//            }
+//            String checkUsername = BASE_USER_URL + URLEncoder.encode(username, StandardCharsets.UTF_8) + "/check"; // checking if the username is registered
+//            HttpResponse<String> checkResponse = postRequest(checkUsername);
+//            if(checkResponse.statusCode() == 200) break;
+//            System.out.println(checkResponse.body());
+//            noOfTrials++;
+//        }
+        // use username to trigger the getToken() method in the server: /initiate-forgot-password
+        String generateMFAToken = BASE_USER_URL + "initiate-forget-password?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
+        HttpResponse<String> response = postRequest(generateMFAToken);
+        System.out.println(response.statusCode());
+        System.out.println (response.body()); // now, email should have been sent to user
+
+        // obtain the pin from the user to initiate the submitToken() method in the server: /submit-token-password
+        String inputToken;
+        int noOfTokenTrials = 0;
+        while (true){
+            if (noOfTokenTrials==3){System.out.println ("You have exceeded the maximum no of input attempts. Please try again later.");
+                return;
+            }
+            System.out.print("Please enter MFA OTP sent to email inbox: ");
+            inputToken = scanner.nextLine().trim();
+            if (inputToken.isEmpty()) {
+                System.out.println("Inputted Token cannot be empty. Try again.");
+                noOfTokenTrials++;
+                continue;
+            }
+            if(inputToken.length() < 6){
+                System.out.println("Inputted Token cannot be less than 6 characters.");
+                noOfTokenTrials++;
+                continue;
+            }
+            //noOfTokenTrials++; // for now this is a placeholder. Need to loop 3 times (place in the end of this else block)
+            String json = String.format("{\"username\":\"%s\",\"pin\":\"%s\"}",
+                    username, inputToken);
+            String submitTokenUrl = BASE_USER_URL + "submit-token-password";
+            HttpResponse<String> response2 = postRequestWithBody(submitTokenUrl, json);
+            if (response2.statusCode() == 200) {
+                System.out.println("Multi-Factor Authentication was successful!\n");
+                break;
+            } else {
+                System.out.println("Multi-Factor Authentication failed: " + response2.body());
+            }
+            noOfTokenTrials++;
+            // place noOfTokenTrials++; here
+        }
+        // obtain the new password from the user (and confirm password), then call the changePassword() method: /changePassword
+        System.out.println("Please update your password below\n");
+        String newPassword, confirmPassword;
+        int passwordTry = 0;
+        while(true){
+            if(passwordTry == 2){
+                System.out.println("Ran out of try again. Going back to main menu");
+                return;
+            }
+            System.out.print("Enter new password: ");
+            newPassword = scanner.nextLine();
+            System.out.print("Confirm new password: ");
+            confirmPassword = scanner.nextLine();
+            if(newPassword.equals(confirmPassword)) break;
+            System.out.println("New password and confirm new password are not matching, Enter them again.");
+            passwordTry++;
+        }
+        byte[] salt = generateRandomBytes(SALT_LENGTH);
+        String hashedPassword = hashPassword(newPassword, salt);
+        String changePasswordUrl = BASE_USER_URL + "changePassword?username=" + username + "&newPassword=" + hashedPassword;
+        HttpResponse<String> response3 = putRequest(changePasswordUrl);
+        System.out.println(response3.body());
+
     }
 
     private void handleExit(Scanner scanner) {
