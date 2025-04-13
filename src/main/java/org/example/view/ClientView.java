@@ -550,7 +550,7 @@ public class ClientView {
         }
         byte[] salt = generateRandomBytes(SALT_LENGTH);
         String hashedPassword = hashPassword(newPassword, salt);
-        String changePasswordUrl = BASE_USER_URL + "changePassword?username=" + username + "&newPassword=" + hashedPassword;
+        String changePasswordUrl = BASE_USER_URL + "changePassword?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&newPassword=" + URLEncoder.encode(hashedPassword, StandardCharsets.UTF_8);
         HttpResponse<String> response3 = putRequest(changePasswordUrl);
         System.out.println(response3.body());
 
