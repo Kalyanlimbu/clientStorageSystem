@@ -48,3 +48,6 @@ Run the client in bash using maven with the following command:
 ```
 mvn clean compile exec:java
 ```
+
+This is applicable for systems with Maven binary , preferably on Linux or MacOSX based systems as tested by us. 
+On Windows, the most convenient way will be to open the Editor/IDE of your choice and complete project configuration. On VSCode, download the Extension Pack for Java, which includes the Maven extension and download the needed JDK. On IntelliJ, you can complete the Project Structure configuration. After this, you can run the main file of the project to initiate maven springboot build:run.  
