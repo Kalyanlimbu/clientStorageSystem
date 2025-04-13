@@ -183,6 +183,36 @@ public class ClientView {
         return diff == 0;
     }
 
+    private static String hashToken(String inputToken, byte[] salt) {
+        byte[] hmacKey = generateRandomBytes(KEY_LENGTH);
+        String saltBase64 = Base64.getEncoder().encodeToString(salt);
+        byte[] hash = HmacSHA256((inputToken + saltBase64).getBytes(), hmacKey);
+        for (int i = 0; i < ITERATION_COUNT; i++) {
+            hash = HmacSHA256(hash, hmacKey);
+        }
+
+        return Base64.getEncoder().encodeToString(hmacKey) + ":" + saltBase64 + ":" + Base64.getEncoder().encodeToString(hash);
+    }
+    private boolean verifyToken(String token, String storedHash) {
+        String[] parts = storedHash.split(":");
+        if (parts.length != 3) return false;
+        String hmacKeyEncoded = parts[0].trim();
+        String saltEncoded = parts[1].trim();
+        String hashEncoded = parts[2].trim();
+
+        byte[] hmacKey = Base64.getDecoder().decode(hmacKeyEncoded);
+        byte[] salt = Base64.getDecoder().decode(saltEncoded);
+        byte[] originalHash = Base64.getDecoder().decode(hashEncoded);
+        // Recompute the hash
+        String saltBase64 = Base64.getEncoder().encodeToString(salt);
+        byte[] computedHash = HmacSHA256((token + saltBase64).getBytes(), hmacKey);
+
+        for (int i = 0; i < ITERATION_COUNT; i++) {
+            computedHash = HmacSHA256(computedHash, hmacKey);
+        }
+        return slowEquals(originalHash, computedHash);
+    }
+
     // Handle user registration with request body
     public static void handleRegister(Scanner scanner) throws IOException, InterruptedException {
         System.out.println("*******************************************************");
@@ -507,6 +537,7 @@ public class ClientView {
             }
             System.out.print("Please enter MFA OTP sent to email inbox: ");
             inputToken = scanner.nextLine().trim();
+            System.out.print(inputToken);
             if (inputToken.isEmpty()) {
                 System.out.println("Inputted Token cannot be empty. Try again.");
                 noOfTokenTrials++;
@@ -517,9 +548,10 @@ public class ClientView {
                 noOfTokenTrials++;
                 continue;
             }
+            byte[] salt = generateRandomBytes(SALT_LENGTH);
+            String hashedToken = hashToken(inputToken,salt);
             //noOfTokenTrials++; // for now this is a placeholder. Need to loop 3 times (place in the end of this else block)
-            String json = String.format("{\"username\":\"%s\",\"pin\":\"%s\"}",
-                    username, inputToken);
+            String json = String.format("{\"username\":\"%s\",\"pin\":\"%s\"}", username, inputToken);
             String submitTokenUrl = BASE_USER_URL + "submit-token-password";
             HttpResponse<String> response2 = postRequestWithBody(submitTokenUrl, json);
             if (response2.statusCode() == 200) {
@@ -527,6 +559,7 @@ public class ClientView {
                 break;
             } else {
                 System.out.println("Multi-Factor Authentication failed: " + response2.body());
+                System.out.println("Input token was ." + inputToken +"\n hashed token was :" + hashedToken);
             }
             noOfTokenTrials++;
             // place noOfTokenTrials++; here
@@ -873,7 +906,7 @@ public class ClientView {
         }
         byte[] salt = generateRandomBytes(SALT_LENGTH);
         String hashedPassword = hashPassword(newPassword, salt);
-        String changePasswordUrl = BASE_USER_URL + "changePassword?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&newPassword=" + URLEncoder.encode(hashedPassword, StandardCharsets.UTF_8);;
+        String changePasswordUrl = BASE_USER_URL + "changePassword?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&newPassword=" + URLEncoder.encode(hashedPassword, StandardCharsets.UTF_8);
         HttpResponse<String> response = putRequest(changePasswordUrl);
         System.out.println(response.body());
     }
