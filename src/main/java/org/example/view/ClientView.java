@@ -290,97 +290,6 @@ public class ClientView {
             System.out.println("Registration failed: " + response.body());
         }
     }
-
-    // Handle login with query parameters
-//    private void handleLogin(Scanner scanner) throws Exception {
-//        System.out.println("*******************************************************");
-//        System.out.println("Please enter the credentials for logging in:");
-//        String username;
-//        int loginTry = 0;
-//        while (true) {
-//            if (loginTry == 3) {
-//                System.out.println("Ran out of try again. Going back to main menu");
-//                return;
-//            }
-//            System.out.print("Please enter your username: ");
-//            username = scanner.nextLine().trim();
-//            if (username.isEmpty()) {
-//                System.out.println("Username cannot be empty. Try again.");
-//                loginTry++;
-//                continue;
-//            }
-//            if (username.length() < 3) {
-//                System.out.println("Username cannot be less than 3 characters.");
-//                loginTry++;
-//                continue;
-//            }
-//            String checkUsername = BASE_USER_URL + URLEncoder.encode(username, StandardCharsets.UTF_8) + "/check";
-//            HttpResponse<String> checkResponse = postRequest(checkUsername);
-//            if (checkResponse.statusCode() == 400) break; // Assuming 400 means username exists
-//            System.out.println("Invalid username, please enter the correct username.");
-//            loginTry++;
-//        }
-//
-//        String password;
-//        int passwordTry = 0;
-//        while (true) {
-//            if (passwordTry == 3) {
-//                System.out.println("Ran out of try again. Going back to main menu");
-//                return;
-//            }
-//            System.out.print("Please enter your password: ");
-//            password = scanner.nextLine().trim();
-//            if (password.isEmpty()) {
-//                System.out.println("Password cannot be empty. Try again.");
-//                passwordTry++;
-//                continue;
-//            }
-//            if (password.length() >= 8) break;
-//            System.out.println("Password cannot be less than 8 characters.");
-//            passwordTry++;
-//        }
-//
-//        // Fetch the stored hashed password from the server
-//        String getHashedPasswordUrl = BASE_USER_URL + "getHashedPassword?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
-//        HttpResponse<String> response = getRequest(getHashedPasswordUrl);
-//        String hashedPasswordFromServer = response.body();
-//
-//        if (response.statusCode() != 200) {
-//            System.out.println("Login failed: Unable to retrieve credentials from server.");
-//            return;
-//        }
-//
-//        // Verify the password
-//        if (verifyPassword(password, hashedPasswordFromServer)) {
-//            // Generate a timestamp
-//            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-//
-//            // Generate a signature using username, timestamp, and hashed password as the key
-//            String dataToSign = timestamp + "|" + username;
-//            byte[] hmacKey = Base64.getDecoder().decode(hashedPasswordFromServer.split(":")[0]); // Use the HMAC key from stored hash
-//            String signature = generateSignature(dataToSign, hmacKey);
-//
-//            // Send login request with signature to the server
-//            String setLogInUrl = BASE_USER_URL + "login?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) +
-//                    "&password=" + URLEncoder.encode(hashedPasswordFromServer.trim(), StandardCharsets.UTF_8) +
-//                    "&signature=" + URLEncoder.encode(signature, StandardCharsets.UTF_8);
-//            HttpResponse<String> login = postRequest(setLogInUrl);
-//            System.out.println(login.body());
-//
-//            if (login.statusCode() == 200) {
-//                if (username.equals("admin")) {
-//                    handleAdminAuthorization(username, hashedPasswordFromServer);
-//                } else {
-//                    handleAuthorization(username, hashedPasswordFromServer, signature);
-//                }
-//            } else {
-//                System.out.println("Login failed: " + login.body());
-//            }
-//        } else {
-//            System.out.println("Login failed: Invalid username or password.");
-//        }
-//    }
-
     // Helper method to generate signature
     private String generateSignature(String data, byte[] key) {
         byte[] signatureBytes = HmacSHA256(data.getBytes(StandardCharsets.UTF_8), key);
@@ -498,30 +407,6 @@ public class ClientView {
         System.out.print("Enter username of account: ");
         username = scanner.nextLine().trim();
         int noOfTrials = 0;
-//        // obtain username from the user (and check if the username exists)
-//        while(true){
-//            if(noOfTrials == 3){
-//                System.out.println("Ran out of try again. Going back to main menu");
-//                return;
-//            }
-//            System.out.print("Please enter the username: ");
-//            username = scanner.nextLine().trim();
-//            if (username.isEmpty()) {
-//                System.out.println("Username cannot be empty. Try again.");
-//                noOfTrials++;
-//                continue;
-//            }
-//            if(username.length() < 3){
-//                System.out.println("Username cannot be less than 3 characters.");
-//                noOfTrials++;
-//                continue;
-//            }
-//            String checkUsername = BASE_USER_URL + URLEncoder.encode(username, StandardCharsets.UTF_8) + "/check"; // checking if the username is registered
-//            HttpResponse<String> checkResponse = postRequest(checkUsername);
-//            if(checkResponse.statusCode() == 200) break;
-//            System.out.println(checkResponse.body());
-//            noOfTrials++;
-//        }
         // use username to trigger the getToken() method in the server: /initiate-forgot-password
         String generateMFAToken = BASE_USER_URL + "initiate-forget-password?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8);
         HttpResponse<String> response = postRequest(generateMFAToken);
@@ -559,7 +444,6 @@ public class ClientView {
                 break;
             } else {
                 System.out.println("Multi-Factor Authentication failed: " + response2.body());
-                System.out.println("Input token was ." + inputToken +"\n hashed token was :" + hashedToken);
             }
             noOfTokenTrials++;
             // place noOfTokenTrials++; here
@@ -652,15 +536,6 @@ public class ClientView {
             }
         }
     }
-
-//    private void handleAdminView(String username, String password) throws IOException, InterruptedException {
-//        System.out.println("*********************************************************************************************************************************************************************");
-//        System.out.println("Below is the list of user logs.");
-//        System.out.println("*********************************************************************************************************************************************************************");
-//        String adminView = BASE_USER_URL + "getLogsForAdmin?adminName=" + username + "&adminPassword=" + password;
-//        HttpResponse<String> response = getRequest(adminView);
-//        System.out.println(response.body());
-//    }
 
     private void handleAdminView(String username, String password) throws IOException, InterruptedException {
         System.out.println("*********************************************************************************************************************************************************************");
